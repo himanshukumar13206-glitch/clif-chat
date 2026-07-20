@@ -1,7 +1,7 @@
 import random
 from telegram import Update
 from telegram.ext import ContextTypes
-from database import db   # your database module
+import database as db          # <-- FIXED: import module as alias
 
 async def bet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -17,14 +17,14 @@ async def bet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Bet a positive amount!")
         return
 
-    user_data = db.get_user(user.id)
+    user_data = db.get_user(user.id)          # now works
     balance = user_data["balance"] if user_data else 0
     if wager > balance:
         await update.message.reply_text(f"You only have {balance} coins.")
         return
 
     if random.random() < 0.5:
-        db.update_balance(user.id, wager)   # add wager (double or nothing net +wager)
+        db.update_balance(user.id, wager)     # add winnings
         new_bal = db.get_user(user.id)["balance"]
         await update.message.reply_text(f"🎉 You won! +{wager} coins.\nNew balance: {new_bal}")
     else:
