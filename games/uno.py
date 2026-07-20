@@ -1,6 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import random
+import database as db          # added for consistency (even if not used yet)
 
 uno_games = {}
 
@@ -13,12 +14,13 @@ async def uno_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uno_games[chat_id] = {
         "owner": user.id,
         "players": {},
-        "stickers": None,   # dict of card -> sticker file_id
+        "stickers": None,      # dict of card -> sticker file_id
         "started": False
     }
     await update.message.reply_text(
         f"🃏 UNO created by {user.mention_html()}!\n"
-        "Players can /unojoin. Owner can set stickers with /unostickers (reply to a message with a list of card‑sticker pairs).\n"
+        "Players can /unojoin. Owner can set stickers with /unostickers "
+        "(reply to a message with a list of card‑sticker pairs).\n"
         "When ready, use /unostartgame.",
         parse_mode="HTML"
     )
@@ -41,6 +43,12 @@ async def uno_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def uno_set_stickers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Placeholder: owner can set a mapping of card names to sticker file IDs
-    await update.message.reply_text("Sticker setup not fully implemented yet. The owner can manage sticker packs via bot PM.")
+    await update.message.reply_text(
+        "Sticker setup not fully implemented yet. "
+        "The owner can manage sticker packs via bot PM."
+    )
 
-# Add more functions: /unostartgame, card play logic, etc.
+# Future functions to add:
+# - /unostartgame: deal cards, start turns
+# - card play handler (callback queries with card choices)
+# - game logic (draw, skip, reverse, wild, win detection)
