@@ -1,57 +1,39 @@
 import random
 from telegram import Update
 from telegram.ext import ContextTypes
-
-# ------------------------------------------------------------
-#  Replace these two functions with your real economy logic
-# ------------------------------------------------------------
-def get_balance(user_id: int) -> int:
-    # TODO: replace with your DB call, e.g.:
-    # from database import db
-    # return db.get_user(user_id)['balance']
-    return 1000   # fallback, remove after integration
-
-def update_balance(user_id: int, amount: int):
-    # TODO: add/subtract from user's balance in DB
-    pass
-# ------------------------------------------------------------
+from database import db   # your database module
 
 async def bet_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not context.args:
         await update.message.reply_text("Usage: /bet <amount>")
         return
-
     try:
         wager = int(context.args[0])
     except ValueError:
         await update.message.reply_text("Please enter a valid number.")
         return
-
     if wager <= 0:
         await update.message.reply_text("Bet a positive amount!")
         return
 
-    balance = get_balance(user.id)
+    user_data = db.get_user(user.id)
+    balance = user_data["balance"] if user_data else 0
     if wager > balance:
         await update.message.reply_text(f"You only have {balance} coins.")
         return
 
-    # 50% chance to win
     if random.random() < 0.5:
-        winnings = wager  # double or nothing → get back wager *2
-        update_balance(user.id, winnings)
-        await update.message.reply_text(
-            f"🎉 You won! +{winnings} coins.\nNew balance: {get_balance(user.id)}"
-        )
+        db.update_balance(user.id, wager)   # add wager (double or nothing net +wager)
+        new_bal = db.get_user(user.id)["balance"]
+        await update.message.reply_text(f"🎉 You won! +{wager} coins.\nNew balance: {new_bal}")
     else:
-        update_balance(user.id, -wager)
-        await update.message.reply_text(
-            f"💸 You lost {wager} coins.\nNew balance: {get_balance(user.id)}"
-        )
+        db.update_balance(user.id, -wager)
+        new_bal = db.get_user(user.id)["balance"]
+        await update.message.reply_text(f"💸 You lost {wager} coins.\nNew balance: {new_bal}")
 
 async def bbet_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Triggered when a message starts with 'bbet <amount>' (case‑insensitive)."""
+    """Triggered by messages starting with 'bbet <amount>' (case insensitive)."""
     text = update.message.text.strip()
     parts = text.split()
     if len(parts) != 2:
@@ -62,17 +44,16 @@ async def bbet_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     except ValueError:
         await update.message.reply_text("Invalid amount.")
         return
-
-    # call the same logic as /bet but using wager
     user = update.effective_user
-    balance = get_balance(user.id)
+    user_data = db.get_user(user.id)
+    balance = user_data["balance"] if user_data else 0
     if wager <= 0 or wager > balance:
         await update.message.reply_text(f"You only have {balance} coins.")
         return
 
     if random.random() < 0.5:
-        update_balance(user.id, wager)
+        db.update_balance(user.id, wager)
         await update.message.reply_text(f"🎉 bbet won! +{wager} coins.")
     else:
-        update_balance(user.id, -wager)
+        db.update_balance(user.id, -wager)
         await update.message.reply_text(f"💸 bbet lost {wager} coins.")
