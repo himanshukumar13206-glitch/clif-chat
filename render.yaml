@@ -1,0 +1,16 @@
+services:
+  - type: worker
+    name: nova-telegram-bot
+    env: python
+    plan: starter
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: BOT_NAME
+        value: Nova
