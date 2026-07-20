@@ -1,5 +1,6 @@
 from telegram import Update
 from telegram.ext import ContextTypes
+import database as db          # added for consistency
 
 chains = {}
 
