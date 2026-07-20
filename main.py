@@ -1,8 +1,8 @@
 import logging
 import asyncio
 import signal
-import os                          # added
-from asyncio import start_server    # added
+import os
+from asyncio import start_server
 
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
@@ -12,7 +12,7 @@ from config import BOT_TOKEN
 import database as db
 
 from handlers import start, economy, actions, romance, admin, chat_ai
-from games import bet, rps
+from games import bet, rps, mines, wordchain, uno   # <-- new games imported
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -33,6 +33,30 @@ async def health_check_handler(reader, writer):
     await writer.drain()
     writer.close()
     await writer.wait_closed()
+
+
+# --- Simple /rules command (add this function) ---
+async def rules_command(update, context):
+    rules_text = (
+        "🎮 <b>Game Rules</b>\n\n"
+        "🎰 <b>/bet &lt;amount&gt;</b> – Solo gambling. 50% chance to double your money.\n"
+        "   or use: <code>bbet 100</code> in any chat.\n\n"
+        "🪨📄✂️ <b>/rps &lt;wager&gt;</b> – Multiplayer rock‑paper‑scissors.\n"
+        "   • <b>/joinrps</b> to join\n"
+        "   • Host can type <b>/end</b> to start the match\n"
+        "   • Each player chooses via private message buttons.\n\n"
+        "💣 <b>/mines</b> – Reveal safe tiles (numbers 1‑25), avoid 3 hidden bombs.\n"
+        "   • Each safe tile gives +10 points.\n"
+        "   • <b>/stopmines</b> to quit.\n\n"
+        "🔗 <b>/wordchain</b> – Start a word chain in the group.\n"
+        "   • The next word must begin with the last letter of the previous.\n"
+        "   • No repeats allowed!\n"
+        "   • <b>/stopchain</b> to end.\n\n"
+        "🃏 <b>/unostart</b> – Create an UNO lobby (basic version).\n"
+        "   • <b>/unojoin</b> to join.\n"
+        "   • Owner can set sticker packs with <b>/unostickers</b> (coming soon).\n"
+    )
+    await update.message.reply_html(rules_text)
 
 
 def build_app():
@@ -81,20 +105,45 @@ def build_app():
     app.add_handler(CommandHandler("groupbot", admin.groupbot_command))
     app.add_handler(CommandHandler("groupmode", admin.groupmode_command))
 
-    # Games
+    # ===== EXISTING GAMES (bet, rps) =====
     app.add_handler(CommandHandler("bet", bet.bet_command))
     app.add_handler(CommandHandler("rps", rps.rps_command))
     app.add_handler(CommandHandler("joinrps", rps.joinrps_command))
     app.add_handler(CommandHandler("end", rps.end_command))
     app.add_handler(CallbackQueryHandler(rps.rps_choice_callback, pattern=r"^rps_choice:"))
 
-    # bbet plain-text handler
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND & filters.Regex(r"(?i)^bbet\b"),
         bet.bbet_message_handler,
     ))
 
-    # Catch-all AI persona chat
+    # ===== NEW GAMES =====
+    # Mines
+    app.add_handler(CommandHandler("mines", mines.mines_command))
+    app.add_handler(CommandHandler("stopmines", mines.stop_mines))
+    # Number inputs for mines (only in groups to avoid clashes with private chats)
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND & filters.Regex(r"^\d+$") & filters.ChatType.GROUPS,
+        mines.mines_tile_handler,
+    ))
+
+    # Wordchain
+    app.add_handler(CommandHandler("wordchain", wordchain.wordchain_start))
+    app.add_handler(CommandHandler("stopchain", wordchain.stop_chain))
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS,
+        wordchain.wordchain_handler,
+    ))
+
+    # UNO (lobby)
+    app.add_handler(CommandHandler("unostart", uno.uno_start))
+    app.add_handler(CommandHandler("unojoin", uno.uno_join))
+    app.add_handler(CommandHandler("unostickers", uno.uno_set_stickers))
+
+    # Rules command
+    app.add_handler(CommandHandler("rules", rules_command))
+
+    # Catch-all AI persona chat (ALWAYS LAST)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_ai.message_handler))
 
     return app
