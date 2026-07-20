@@ -1,4 +1,5 @@
 import logging
+import asyncio  # <-- added
 
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
@@ -79,11 +80,12 @@ def build_app():
     return app
 
 
-def main():
+async def main():
+    """Async entry point for the bot."""
     app = build_app()
     logger.info("Nova is starting...")
-    app.run_polling(allowed_updates=None)
+    await app.run_polling(allowed_updates=None)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
