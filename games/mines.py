@@ -1,7 +1,7 @@
 import random
 from telegram import Update
 from telegram.ext import ContextTypes
-from database import db
+import database as db          # <-- fixed import
 
 games = {}   # {chat_id: {"bombs": set, "revealed": set, "score": 0, "grid": 5}}
 
@@ -45,7 +45,7 @@ async def mines_tile_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         bomb_left = 3 - len(game["revealed"] & game["bombs"])
         await update.message.reply_text(f"✅ Safe! +10. Score: {game['score']}. Safe left: {safe_left}, Bombs left: {bomb_left}")
         if safe_left == len(game["bombs"]):
-            await update.message.reply_text(f"🎉 You cleared the board! Final score: {game['score']}")
+            await update.message.reply_text(f"🎉 You cleared the board! Final score: {game['score']}")   # fixed line
             del games[chat_id]
 
 async def stop_mines(update: Update, context: ContextTypes.DEFAULT_TYPE):
