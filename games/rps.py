@@ -1,7 +1,7 @@
 import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from database import db
+import database as db   # <-- import whole module
 
 active_games = {}   # {chat_id: {"host": user_id, "wager": int, "players": {user_id: choice}}}
 
@@ -28,10 +28,13 @@ async def rps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("You don't have enough coins.")
         return
 
+    # Deduct the host's wager up front so it can't be spent elsewhere
+    db.update_balance(user.id, -wager)
+
     active_games[chat_id] = {
         "host": user.id,
         "wager": wager,
-        "players": {}   # user_id → choice (None initially)
+        "players": {user.id: None}   # host auto-joins
     }
     keyboard = [[InlineKeyboardButton("Join Game", callback_data="rps_join")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -53,11 +56,14 @@ async def joinrps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user.id in game["players"]:
         await update.message.reply_text("You already joined.")
         return
-    # Deduct entry wager (optional – you can do it later)
     user_data = db.get_user(user.id)
     if not user_data or user_data["balance"] < game["wager"]:
         await update.message.reply_text("You don't have enough coins to join.")
         return
+
+    # Deduct the wager at join time so it's actually at stake
+    db.update_balance(user.id, -game["wager"])
+
     game["players"][user.id] = None
     await update.message.reply_text(f"{user.mention_html()} joined the arena!", parse_mode="HTML")
 
@@ -129,17 +135,18 @@ async def rps_choice_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         p1_id, p1 = players[0]
         p2_id, p2 = players[1]
         beats = {"rock": "scissors", "paper": "rock", "scissors": "paper"}
+        wager = game["wager"]
         if p1 == p2:
             result = "It's a draw!"
-            # Return wagers
-            db.update_balance(p1_id, game["wager"])
-            db.update_balance(p2_id, game["wager"])
+            # Return wagers (they were deducted at join time)
+            db.update_balance(p1_id, wager)
+            db.update_balance(p2_id, wager)
         elif beats[p1] == p2:
             result = f"Player {p1_id} wins!"
-            db.update_balance(p1_id, game["wager"] * 2)   # they get both wagers
+            db.update_balance(p1_id, wager * 2)   # they get both wagers back
         else:
             result = f"Player {p2_id} wins!"
-            db.update_balance(p2_id, game["wager"] * 2)
+            db.update_balance(p2_id, wager * 2)
 
         await context.bot.send_message(chat_id, f"RPS result: {result}")
         del active_games[chat_id]
