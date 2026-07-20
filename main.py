@@ -1,5 +1,8 @@
 import logging
-import asyncio  # <-- added
+import asyncio
+import signal
+import os                          # added
+from asyncio import start_server    # added
 
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
@@ -13,6 +16,23 @@ from games import bet, rps
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+
+# --- Minimal HTTP handler for Render health check ---
+async def health_check_handler(reader, writer):
+    """Respond with a simple 200 OK."""
+    response = (
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Length: 2\r\n"
+        "Content-Type: text/plain\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "OK"
+    )
+    writer.write(response.encode())
+    await writer.drain()
+    writer.close()
+    await writer.wait_closed()
 
 
 def build_app():
@@ -68,23 +88,53 @@ def build_app():
     app.add_handler(CommandHandler("end", rps.end_command))
     app.add_handler(CallbackQueryHandler(rps.rps_choice_callback, pattern=r"^rps_choice:"))
 
-    # bbet plain-text handler (must run before the generic AI chat handler)
+    # bbet plain-text handler
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND & filters.Regex(r"(?i)^bbet\b"),
         bet.bbet_message_handler,
     ))
 
-    # Catch-all AI persona chat (DMs always, groups only when mentioned/replied/random chance)
+    # Catch-all AI persona chat
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_ai.message_handler))
 
     return app
 
 
 async def main():
-    """Async entry point for the bot."""
     app = build_app()
     logger.info("Nova is starting...")
-    await app.run_polling(allowed_updates=None)
+
+    # Start the bot
+    await app.initialize()
+    await app.updater.start_polling()
+    await app.start()
+    logger.info("Nova is running.")
+
+    # Start the tiny HTTP server for Render's health check
+    port = int(os.environ.get("PORT", 10000))
+    server = await start_server(health_check_handler, host="0.0.0.0", port=port)
+    logger.info(f"Health check server listening on port {port}")
+
+    # Wait until a stop signal
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def stop():
+        logger.info("Shutting down...")
+        stop_event.set()
+
+    loop.add_signal_handler(signal.SIGTERM, stop)
+    loop.add_signal_handler(signal.SIGINT, stop)
+
+    await stop_event.wait()
+
+    # Graceful shutdown
+    server.close()
+    await server.wait_closed()
+    await app.stop()
+    await app.updater.stop()
+    await app.shutdown()
+    logger.info("Nova has stopped.")
 
 
 if __name__ == "__main__":
