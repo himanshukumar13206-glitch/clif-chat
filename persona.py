@@ -51,18 +51,16 @@ def chat_reply(user_id: int, username: str, user_message: str) -> str:
 
     system_prompt = build_system_prompt(user_id, username)
 
-    # Build history in the new SDK format
     history = db.get_chat_history(user_id, limit=20)
     contents = []
     for h in history:
         role = "user" if h["role"] == "user" else "model"
         contents.append(types.Content(role=role, parts=[types.Part(text=h["content"])]))
-    # Add the current user message
     contents.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
     try:
         response = _client.models.generate_content(
-            model="gemini-2.0-flash",   # works on free tier
+            model="gemini-2.0-flash",
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
@@ -73,23 +71,19 @@ def chat_reply(user_id: int, username: str, user_message: str) -> str:
         reply_text = response.text.strip()
 
     except Exception as e:
-        # Log the real error to Render logs
+        # 🔥 Show the real error in Render logs
         print("=== Gemini API Error ===")
         traceback.print_exc()
         reply_text = "🤖 Nova can't think right now (API error). Try again later."
 
-    # Store conversation in DB
     db.add_chat_message(user_id, "user", user_message)
     db.add_chat_message(user_id, "assistant", reply_text)
-
-    # Memory extraction (unchanged)
     maybe_extract_note(user_id, user_message)
 
     return reply_text
 
 
 def maybe_extract_note(user_id: int, user_message: str):
-    """Very lightweight heuristic memory extraction."""
     lowered = user_message.lower()
     triggers = ["i like", "i love", "i hate", "my name is", "i'm from", "i work", "i study", "my birthday"]
     for t in triggers:
