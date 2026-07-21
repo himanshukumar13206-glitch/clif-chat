@@ -1,21 +1,20 @@
 """
 Handles Nova's personality: builds the system prompt (with per-user memory)
-and calls the Google Gemini API to generate in-character replies.
+and calls the Google Gemini API (new google-genai SDK).
 """
 
-import google.generativeai as genai
-from config import BOT_NAME, GEMINI_API_KEY   # Make sure config.py has GEMINI_API_KEY
+import traceback
+from google import genai
+from google.genai import types
+from config import BOT_NAME, GEMINI_API_KEY
 import database as db
 
-# Configure Gemini
+# Initialize Gemini client
 _client = None
 if GEMINI_API_KEY:
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        # Use a free‑tier model; 'gemini-1.5-flash' is fast and works on free quota
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        _client = model
-        print("Gemini AI client initialized successfully.")
+        _client = genai.Client(api_key=GEMINI_API_KEY)
+        print("Gemini client initialized successfully.")
     except Exception as e:
         print(f"Failed to init Gemini client: {e}")
 
@@ -50,38 +49,40 @@ def chat_reply(user_id: int, username: str, user_message: str) -> str:
     if _client is None:
         return "(Nova's brain isn't wired up yet — ask my dev to set GEMINI_API_KEY.)"
 
-    history = db.get_chat_history(user_id, limit=20)
-    # Convert old history (if any) to Gemini's format: role = "user" or "model"
-    messages = []
-    for h in history:
-        role = "user" if h["role"] == "user" else "model"
-        messages.append({"role": role, "parts": [h["content"]]})
-    # Append the new user message
-    messages.append({"role": "user", "parts": [user_message]})
-
     system_prompt = build_system_prompt(user_id, username)
 
+    # Build history in the new SDK format
+    history = db.get_chat_history(user_id, limit=20)
+    contents = []
+    for h in history:
+        role = "user" if h["role"] == "user" else "model"
+        contents.append(types.Content(role=role, parts=[types.Part(text=h["content"])]))
+    # Add the current user message
+    contents.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
+
     try:
-        # Gemini's chat uses the system prompt as the first message
-        chat = _client.start_chat(history=[])
-        # We'll send the system prompt as a user message for context (or use system_instruction if available)
-        # Simpler approach: prepend system prompt to the first user message
-        full_prompt = f"{system_prompt}\n\nUser: {user_message}"
-        response = chat.send_message(full_prompt)
+        response = _client.models.generate_content(
+            model="gemini-2.0-flash",   # works on free tier
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=300,
+                temperature=0.9,
+            ),
+        )
         reply_text = response.text.strip()
 
     except Exception as e:
-        error_message = str(e)
-        if "quota" in error_message.lower() or "resource" in error_message.lower():
-            reply_text = "⏳ Nova is resting (free quota exceeded). Try again in a few seconds."
-        else:
-            reply_text = f"🤖 Nova can't think right now (API error). Try again later."
+        # Log the real error to Render logs
+        print("=== Gemini API Error ===")
+        traceback.print_exc()
+        reply_text = "🤖 Nova can't think right now (API error). Try again later."
 
-    # Store the conversation in your DB
+    # Store conversation in DB
     db.add_chat_message(user_id, "user", user_message)
     db.add_chat_message(user_id, "assistant", reply_text)
 
-    # Lightweight memory extraction (unchanged)
+    # Memory extraction (unchanged)
     maybe_extract_note(user_id, user_message)
 
     return reply_text
