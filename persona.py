@@ -1,19 +1,23 @@
 """
 Handles Nova's personality: builds the system prompt (with per-user memory)
-and calls the Anthropic API to generate in-character replies.
+and calls the Google Gemini API to generate in-character replies.
 """
 
-import anthropic
-from config import ANTHROPIC_API_KEY, BOT_NAME
+import google.generativeai as genai
+from config import BOT_NAME, GEMINI_API_KEY   # Make sure config.py has GEMINI_API_KEY
 import database as db
 
-# Safe client initialization
+# Configure Gemini
 _client = None
-if ANTHROPIC_API_KEY:
+if GEMINI_API_KEY:
     try:
-        _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        genai.configure(api_key=GEMINI_API_KEY)
+        # Use a free‑tier model; 'gemini-1.5-flash' is fast and works on free quota
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        _client = model
+        print("Gemini AI client initialized successfully.")
     except Exception as e:
-        print(f"Failed to init Anthropic client: {e}")
+        print(f"Failed to init Gemini client: {e}")
 
 BASE_SYSTEM_PROMPT = f"""You are {BOT_NAME}, a Telegram bot with a warm, witty, flirty personality.
 You are NOT a generic assistant — you talk like a real person texting: casual, playful, a little
@@ -28,8 +32,8 @@ Rules you always follow:
   content, and you always treat the user as an adult peer, never as a child.
 - If you don't actually know something about the user, don't make it up — ask instead.
 - Use the memory notes below naturally, without listing them back at the user like a report.
-- Never say you are an AI assistant made by Anthropic; stay in character as {BOT_NAME}. If asked
-  directly whether you're an AI, you can be playfully honest without breaking character.
+- Never say you are an AI assistant made by Google or Anthropic; stay in character as {BOT_NAME}.
+  If asked directly whether you're an AI, you can be playfully honest without breaking character.
 """
 
 
@@ -44,49 +48,47 @@ def build_system_prompt(user_id: int, username: str) -> str:
 def chat_reply(user_id: int, username: str, user_message: str) -> str:
     """Generate a reply in Nova's voice, using rolling per-user chat history."""
     if _client is None:
-        return "(Nova's brain isn't wired up yet — ask my dev to set ANTHROPIC_API_KEY.)"
+        return "(Nova's brain isn't wired up yet — ask my dev to set GEMINI_API_KEY.)"
 
     history = db.get_chat_history(user_id, limit=20)
-    messages = [{"role": h["role"], "content": h["content"]} for h in history]
-    messages.append({"role": "user", "content": user_message})
+    # Convert old history (if any) to Gemini's format: role = "user" or "model"
+    messages = []
+    for h in history:
+        role = "user" if h["role"] == "user" else "model"
+        messages.append({"role": role, "parts": [h["content"]]})
+    # Append the new user message
+    messages.append({"role": "user", "parts": [user_message]})
 
     system_prompt = build_system_prompt(user_id, username)
 
     try:
-        response = _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=300,
-            system=system_prompt,
-            messages=messages,
-        )
-        reply_text = "".join(
-            block.text for block in response.content if getattr(block, "type", None) == "text"
-        ).strip()
+        # Gemini's chat uses the system prompt as the first message
+        chat = _client.start_chat(history=[])
+        # We'll send the system prompt as a user message for context (or use system_instruction if available)
+        # Simpler approach: prepend system prompt to the first user message
+        full_prompt = f"{system_prompt}\n\nUser: {user_message}"
+        response = chat.send_message(full_prompt)
+        reply_text = response.text.strip()
 
-    except anthropic.BadRequestError as e:
-        # Handle billing / credit issues gracefully
-        error_message = str(e)
-        if "credit balance is too low" in error_message.lower():
-            reply_text = "💰 Nova's brain is out of credits! Please top up the Anthropic account."
-        else:
-            reply_text = f"⚠️ API error: {error_message}"
     except Exception as e:
-        # Catch-all for any network/API issues
-        reply_text = f"🤖 Nova can't think right now (API error). Try again later."
+        error_message = str(e)
+        if "quota" in error_message.lower() or "resource" in error_message.lower():
+            reply_text = "⏳ Nova is resting (free quota exceeded). Try again in a few seconds."
+        else:
+            reply_text = f"🤖 Nova can't think right now (API error). Try again later."
 
-    # Always store the conversation, even if reply is an error message
+    # Store the conversation in your DB
     db.add_chat_message(user_id, "user", user_message)
     db.add_chat_message(user_id, "assistant", reply_text)
 
-    # Memory extraction (unchanged)
+    # Lightweight memory extraction (unchanged)
     maybe_extract_note(user_id, user_message)
 
     return reply_text
 
 
 def maybe_extract_note(user_id: int, user_message: str):
-    """Very lightweight heuristic memory extraction (no extra API call).
-    For higher-quality memory, replace this with a small classification call."""
+    """Very lightweight heuristic memory extraction."""
     lowered = user_message.lower()
     triggers = ["i like", "i love", "i hate", "my name is", "i'm from", "i work", "i study", "my birthday"]
     for t in triggers:
