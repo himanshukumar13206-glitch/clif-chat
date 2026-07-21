@@ -2,6 +2,7 @@ import os
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 OWNER_ID = int(os.environ.get("OWNER_ID", "0") or "0")
 
 BOT_NAME = os.environ.get("BOT_NAME", "Nova")
