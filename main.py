@@ -12,7 +12,7 @@ from config import BOT_TOKEN
 import database as db
 
 from handlers import start, economy, actions, romance, admin, chat_ai
-from games import bet, rps, mines, wordchain, uno   # <-- new games imported
+from games import bet, rps, mines, wordchain, uno
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ async def health_check_handler(reader, writer):
     await writer.wait_closed()
 
 
-# --- Simple /rules command (add this function) ---
+# --- Simple /rules command (updated with UNO details) ---
 async def rules_command(update, context):
     rules_text = (
         "🎮 <b>Game Rules</b>\n\n"
@@ -52,9 +52,15 @@ async def rules_command(update, context):
         "   • The next word must begin with the last letter of the previous.\n"
         "   • No repeats allowed!\n"
         "   • <b>/stopchain</b> to end.\n\n"
-        "🃏 <b>/unostart</b> – Create an UNO lobby (basic version).\n"
-        "   • <b>/unojoin</b> to join.\n"
-        "   • Owner can set sticker packs with <b>/unostickers</b> (coming soon).\n"
+        "🃏 <b>UNO</b> (full game)\n"
+        "   • <b>/unostart</b> – Create a game lobby.\n"
+        "   • <b>/unojoin</b> – Join the lobby.\n"
+        "   • <b>/unostartgame</b> – (creator only) Start the game.\n"
+        "   • Play cards in your private chat – inline buttons appear.\n"
+        "   • <b>/unoleave</b> – Leave the game.\n"
+        "   • <b>/unoskip</b> – Skip the current player (after 90s).\n"
+        "   • <b>/unokill</b> – (creator only) Terminate the game.\n"
+        "   • <b>/setunostickers</b> – (sudo only) Upload sticker pack for cards.\n"
     )
     await update.message.reply_html(rules_text)
 
@@ -105,7 +111,7 @@ def build_app():
     app.add_handler(CommandHandler("groupbot", admin.groupbot_command))
     app.add_handler(CommandHandler("groupmode", admin.groupmode_command))
 
-    # ===== EXISTING GAMES (bet, rps) =====
+    # ===== EXISTING GAMES =====
     app.add_handler(CommandHandler("bet", bet.bet_command))
     app.add_handler(CommandHandler("rps", rps.rps_command))
     app.add_handler(CommandHandler("joinrps", rps.joinrps_command))
@@ -117,17 +123,14 @@ def build_app():
         bet.bbet_message_handler,
     ))
 
-    # ===== NEW GAMES =====
-    # Mines
+    # ===== MINES & WORDCHAIN =====
     app.add_handler(CommandHandler("mines", mines.mines_command))
     app.add_handler(CommandHandler("stopmines", mines.stop_mines))
-    # Number inputs for mines (only in groups to avoid clashes with private chats)
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND & filters.Regex(r"^\d+$") & filters.ChatType.GROUPS,
         mines.mines_tile_handler,
     ))
 
-    # Wordchain
     app.add_handler(CommandHandler("wordchain", wordchain.wordchain_start))
     app.add_handler(CommandHandler("stopchain", wordchain.stop_chain))
     app.add_handler(MessageHandler(
@@ -135,10 +138,29 @@ def build_app():
         wordchain.wordchain_handler,
     ))
 
-    # UNO (lobby)
+    # ===== FULL UNO GAME =====
+    # Lobby & game commands
     app.add_handler(CommandHandler("unostart", uno.uno_start))
     app.add_handler(CommandHandler("unojoin", uno.uno_join))
-    app.add_handler(CommandHandler("unostickers", uno.uno_set_stickers))
+    app.add_handler(CommandHandler("unostartgame", uno.uno_start_game))
+    app.add_handler(CommandHandler("unoleave", uno.uno_leave))
+    app.add_handler(CommandHandler("unoskip", uno.uno_skip))
+    app.add_handler(CommandHandler("unokill", uno.uno_kill))
+
+    # Sticker management (sudo only)
+    app.add_handler(CommandHandler("setunostickers", uno.set_uno_stickers))
+    app.add_handler(CommandHandler("done_stickers", uno.done_stickers))
+
+    # Inline callbacks for playing/drawing/viewing
+    app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_play:"))
+    app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_draw$"))
+    app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_state$"))
+
+    # Handler for sticker uploads (when sudo user is setting stickers)
+    app.add_handler(MessageHandler(
+        filters.Sticker.ALL & ~filters.COMMAND,
+        uno.handle_sticker_message
+    ), group=1)   # group 1 ensures it runs before the catch-all
 
     # Rules command
     app.add_handler(CommandHandler("rules", rules_command))
