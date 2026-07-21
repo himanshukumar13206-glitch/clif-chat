@@ -86,6 +86,14 @@ def init_db():
             personal_mode TEXT DEFAULT 'normal'
         )""")
 
+        # ========== NEW: UNO stickers ==========
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS uno_stickers (
+            card_name TEXT PRIMARY KEY,
+            sticker_file_id TEXT NOT NULL
+        )
+        """)
+
 
 # ---------- Users ----------
 
@@ -317,3 +325,25 @@ def set_pref(user_id: int, field: str, value):
     get_prefs(user_id)
     with cursor() as cur:
         cur.execute(f"UPDATE user_prefs SET {field}=? WHERE user_id=?", (value, user_id))
+
+
+# ========== NEW: UNO sticker functions ==========
+def save_uno_sticker(card_name: str, file_id: str):
+    with cursor() as cur:
+        cur.execute(
+            "INSERT OR REPLACE INTO uno_stickers (card_name, sticker_file_id) VALUES (?, ?)",
+            (card_name, file_id),
+        )
+
+
+def get_uno_sticker(card_name: str):
+    with cursor() as cur:
+        cur.execute("SELECT sticker_file_id FROM uno_stickers WHERE card_name=?", (card_name,))
+        row = cur.fetchone()
+        return row["sticker_file_id"] if row else None
+
+
+def get_all_uno_stickers():
+    with cursor() as cur:
+        cur.execute("SELECT card_name, sticker_file_id FROM uno_stickers")
+        return {row["card_name"]: row["sticker_file_id"] for row in cur.fetchall()}
