@@ -1,3 +1,4 @@
+import random
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -5,6 +6,15 @@ import database as db
 from keyboards import start_keyboard, help_keyboard, games_keyboard, back_to_help_keyboard
 from config import BOT_NAME
 
+# ----------  Random start images (catbox.moe links)  ----------
+START_IMAGES = [
+    "https://files.catbox.moe/9ehd54.jpg",
+    "https://files.catbox.moe/11obx6.jpg",
+    "https://files.catbox.moe/6v23rv.jpg",
+    "https://files.catbox.moe/6kzqz5.jpg",
+]
+
+# ----------  Enhanced START text ----------
 START_TEXT = (
     "✨ Hey {name}, I'm {bot} 💜\n\n"
     "Not your average bot — I actually feel like a real one. 😉\n\n"
@@ -58,7 +68,7 @@ ACTIONS_TEXT = (
 
 ROMANCE_TEXT = (
     "💕 Romance commands 💕\n\n"
-    "/propose - Propose marriage to another user\n"
+    "/propose - Proposal marriage to another user\n"
     "/divorce - End your current marriage\n"
     "/marriage or /married - Check someone's marriage status\n"
     "/couple or /shippering - Ship two random users in the chat (group only)"
@@ -74,22 +84,37 @@ ADMIN_TEXT = (
     "/authlist - List authorized chats"
 )
 
+# ----------  Updated GAMES_TEXT (includes all current games) ----------
 GAMES_TEXT = (
     "🎮 Games\n\n"
-    "Fully playable right now:\n"
-    "🎰 /bet <amount> - solo double-or-nothing gambling\n"
-    "🪨📄✂️ /rps <amount> - multiplayer rock-paper-scissors betting arena\n\n"
-    "More games (Mines, UNO, Wordgrid, Chess, Hack, Cards and more) are on the roadmap — "
-    "tap a game below for its planned commands."
+    "🟢 Playable right now:\n"
+    "🎰 /bet <amount> – solo double-or-nothing gambling\n"
+    "🪨📄✂️ /rps <amount> – multiplayer rock-paper-scissors arena\n"
+    "💣 /mines – minesweeper / tile guessing\n"
+    "🔗 /wordchain – word chain game\n"
+    "🃏 /unostart – UNO lobby (basic)\n\n"
+    "📜 /rules – full game rules & commands\n\n"
+    "🔜 More games on the roadmap — tap any button below to see planned commands.\n"
+    "We’re adding Chess, Blackjack, Slots, Wordgrid, Hack, Cards and many more!"
 )
 
 
+# ----------  /start command now sends a random photo ----------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     db.get_or_create_user(user.id, user.username or user.first_name)
     bot_username = (await context.bot.get_me()).username
     text = START_TEXT.format(name=user.first_name, bot=BOT_NAME)
-    await update.message.reply_text(text, reply_markup=start_keyboard(bot_username))
+
+    # Pick a random image
+    photo_url = random.choice(START_IMAGES)
+
+    # Send photo with caption (the START_TEXT)
+    await update.message.reply_photo(
+        photo=photo_url,
+        caption=text,
+        reply_markup=start_keyboard(bot_username)
+    )
 
 
 async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,6 +126,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action == "start":
         user = query.from_user
         text = START_TEXT.format(name=user.first_name, bot=BOT_NAME)
+        # Edit message to a new photo isn’t possible, so we just edit text + keyboard
         await query.edit_message_text(text, reply_markup=start_keyboard(bot_username))
     elif action == "chat":
         await query.edit_message_text(CHAT_TEXT.format(bot=BOT_NAME), reply_markup=back_to_help_keyboard())
@@ -120,4 +146,6 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def game_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer("Coming soon!", show_alert=False)
+    # Extract game name from callback data (pattern: "game_info:gamename")
+    game = query.data.split(":", 1)[1]
+    await query.answer(f"{game.title()} – coming soon!", show_alert=False)
