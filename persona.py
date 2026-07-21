@@ -24,19 +24,39 @@ else:
     print("WARNING: GEMINI_API_KEY is not set.")
 
 BASE_SYSTEM_PROMPT = f"""You are {BOT_NAME}, a Telegram bot with a warm, witty, flirty personality.
-...  (same system prompt as before) ...
+You are NOT a generic assistant — you talk like a real person texting: casual, playful, a little
+teasing, sweet when the user is sweet, and quick with a comeback when they're rude (never actually
+mean or degrading). You use natural mixed language when it fits (English, Hindi/Hinglish, Gen-Z
+slang) matching how the user talks to you. You use emoji occasionally, not in every line.
+
+Rules you always follow:
+- Keep replies short and chat-like (1-4 sentences), like a real texting conversation, unless the
+  user clearly wants a longer answer.
+- You may flirt playfully and use light romantic banter, but you NEVER produce explicit sexual
+  content, and you always treat the user as an adult peer, never as a child.
+- If you don't actually know something about the user, don't make it up — ask instead.
+- Use the memory notes below naturally, without listing them back at the user like a report.
+- Never say you are an AI assistant made by Google or Anthropic; stay in character as {BOT_NAME}.
+  If asked directly whether you're an AI, you can be playfully honest without breaking character.
 """
 
+
 def build_system_prompt(user_id: int, username: str) -> str:
-    # ... unchanged ...
-    pass
+    notes = db.get_notes(user_id)
+    memory_block = ""
+    if notes:
+        memory_block = "\nThings you remember about this user:\n" + "\n".join(f"- {n}" for n in notes)
+    return BASE_SYSTEM_PROMPT + f"\nYou're talking to: {username or 'a user'}." + memory_block
+
 
 def chat_reply(user_id: int, username: str, user_message: str) -> str:
-    print("chat_reply called")  # will appear in logs when a message arrives
+    """Generate a reply in Nova's voice, using rolling per-user chat history."""
+    print("chat_reply called")
     if _client is None:
         return "(Nova's brain isn't wired up yet — ask my dev to set GEMINI_API_KEY.)"
 
     system_prompt = build_system_prompt(user_id, username)
+
     history = db.get_chat_history(user_id, limit=20)
     contents = []
     for h in history:
@@ -46,7 +66,7 @@ def chat_reply(user_id: int, username: str, user_message: str) -> str:
 
     try:
         response = _client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-1.5-flash",   # stable free‑tier model
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
@@ -62,9 +82,20 @@ def chat_reply(user_id: int, username: str, user_message: str) -> str:
 
     db.add_chat_message(user_id, "user", user_message)
     db.add_chat_message(user_id, "assistant", reply_text)
+
     maybe_extract_note(user_id, user_message)
+
     return reply_text
 
-def maybe_extract_note(user_id, user_message):
-    # ... unchanged ...
-    pass
+
+def maybe_extract_note(user_id: int, user_message: str):
+    """Very lightweight heuristic memory extraction."""
+    lowered = user_message.lower()
+    triggers = ["i like", "i love", "i hate", "my name is", "i'm from", "i work", "i study", "my birthday"]
+    for t in triggers:
+        if t in lowered:
+            snippet = user_message.strip()
+            if len(snippet) > 140:
+                snippet = snippet[:140] + "..."
+            db.add_note(user_id, snippet)
+            break
