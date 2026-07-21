@@ -7,7 +7,13 @@ import anthropic
 from config import ANTHROPIC_API_KEY, BOT_NAME
 import database as db
 
-_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+# Safe client initialization
+_client = None
+if ANTHROPIC_API_KEY:
+    try:
+        _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    except Exception as e:
+        print(f"Failed to init Anthropic client: {e}")
 
 BASE_SYSTEM_PROMPT = f"""You are {BOT_NAME}, a Telegram bot with a warm, witty, flirty personality.
 You are NOT a generic assistant — you talk like a real person texting: casual, playful, a little
@@ -46,22 +52,36 @@ def chat_reply(user_id: int, username: str, user_message: str) -> str:
 
     system_prompt = build_system_prompt(user_id, username)
 
-    response = _client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=300,
-        system=system_prompt,
-        messages=messages,
-    )
-    reply_text = "".join(
-        block.text for block in response.content if getattr(block, "type", None) == "text"
-    ).strip()
+    try:
+        response = _client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=300,
+            system=system_prompt,
+            messages=messages,
+        )
+        reply_text = "".join(
+            block.text for block in response.content if getattr(block, "type", None) == "text"
+        ).strip()
 
+    except anthropic.BadRequestError as e:
+        # Handle billing / credit issues gracefully
+        error_message = str(e)
+        if "credit balance is too low" in error_message.lower():
+            reply_text = "💰 Nova's brain is out of credits! Please top up the Anthropic account."
+        else:
+            reply_text = f"⚠️ API error: {error_message}"
+    except Exception as e:
+        # Catch-all for any network/API issues
+        reply_text = f"🤖 Nova can't think right now (API error). Try again later."
+
+    # Always store the conversation, even if reply is an error message
     db.add_chat_message(user_id, "user", user_message)
     db.add_chat_message(user_id, "assistant", reply_text)
 
+    # Memory extraction (unchanged)
     maybe_extract_note(user_id, user_message)
 
-    return reply_text or "..."
+    return reply_text
 
 
 def maybe_extract_note(user_id: int, user_message: str):
