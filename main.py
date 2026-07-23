@@ -19,7 +19,8 @@ from handlers.tagall import (
     tag_all, tag_one_by_one, tag_all_in_one,
     good_morning, good_night, festivals_menu,
     today_festival, all_festivals, tagall_back,
-    new_member, left_member
+    new_member, left_member,
+    track_message_sender   # NEW: collects member IDs from every message
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -198,7 +199,7 @@ def build_app():
     app.add_handler(CallbackQueryHandler(all_festivals, pattern="^all_festivals$"))
     app.add_handler(CallbackQueryHandler(tagall_back, pattern="^tagall_back$"))
 
-    # Group member tracking
+    # Group member join/leave tracking
     app.add_handler(MessageHandler(
         filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member
     ))
@@ -206,13 +207,19 @@ def build_app():
         filters.StatusUpdate.LEFT_CHAT_MEMBER, left_member
     ))
 
+    # ========== NEW: Track every message in groups for tagall ==========
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS,
+        track_message_sender
+    ), group=0)   # runs before the catch-all and blocks it
+
     # Temporary /getid (you can remove this line later)
     app.add_handler(CommandHandler("getid", get_photo_id))
 
     # Rules command
     app.add_handler(CommandHandler("rules", rules_command))
 
-    # Catch-all AI chat (MUST BE LAST)
+    # Catch-all AI persona chat (ALWAYS LAST)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_ai.message_handler))
 
     return app
