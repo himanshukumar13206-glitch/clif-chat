@@ -81,3 +81,24 @@ def games_keyboard():
         # Back button at the end
         [InlineKeyboardButton("⬅️ Back to Help", callback_data="menu:help")],
     ])
+
+
+# ========== NEW: Tagall & Festival keyboards ==========
+def tag_all_menu():
+    """Inline keyboard for /tagall command – admin only."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👤 Tag One by One", callback_data="tag_one")],
+        [InlineKeyboardButton("📢 Tag All in One", callback_data="tag_all_in_one")],
+        [InlineKeyboardButton("🌅 Good Morning", callback_data="good_morning")],
+        [InlineKeyboardButton("🌙 Good Night", callback_data="good_night")],
+        [InlineKeyboardButton("🎉 Festivals & Events", callback_data="festivals_menu")],
+    ])
+
+
+def festivals_menu_keyboard():
+    """Sub‑menu for festivals and events."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📅 Today's Festival/Event", callback_data="today_festival")],
+        [InlineKeyboardButton("📋 All Festivals", callback_data="all_festivals")],
+        [InlineKeyboardButton("🔙 Back", callback_data="tagall_back")],
+    ])
