@@ -94,14 +94,23 @@ def init_db():
         )
         """)
 
-        # ========== NEW: Tagall & Festival tables ==========
+        # ========== UPDATED: Tagall & Festival tables ==========
         cur.execute("""
         CREATE TABLE IF NOT EXISTS group_members (
             chat_id INTEGER,
             user_id INTEGER,
+            first_name TEXT DEFAULT '',
+            username TEXT DEFAULT '',
             PRIMARY KEY (chat_id, user_id)
         )
         """)
+
+        # Migration: add columns if they don't exist (for existing databases)
+        for col, coltype in [("first_name", "TEXT DEFAULT ''"), ("username", "TEXT DEFAULT ''")]:
+            try:
+                cur.execute(f"ALTER TABLE group_members ADD COLUMN {col} {coltype}")
+            except sqlite3.OperationalError:
+                pass   # column already exists
 
         cur.execute("""
         CREATE TABLE IF NOT EXISTS festivals (
@@ -369,10 +378,14 @@ def get_all_uno_stickers():
         return {row["card_name"]: row["sticker_file_id"] for row in cur.fetchall()}
 
 
-# ========== NEW: Tagall & Festival functions ==========
-def add_member(chat_id, user_id):
+# ========== UPDATED: Tagall & Festival functions ==========
+def add_member(chat_id, user_id, first_name="", username=""):
+    """Add a group member with optional display names."""
     with cursor() as cur:
-        cur.execute("INSERT OR IGNORE INTO group_members (chat_id, user_id) VALUES (?, ?)", (chat_id, user_id))
+        cur.execute(
+            "INSERT OR REPLACE INTO group_members (chat_id, user_id, first_name, username) VALUES (?, ?, ?, ?)",
+            (chat_id, user_id, first_name, username)
+        )
 
 
 def remove_member(chat_id, user_id):
@@ -381,16 +394,24 @@ def remove_member(chat_id, user_id):
 
 
 def get_all_members(chat_id):
+    """Return list of user_ids (for backward compat)."""
     with cursor() as cur:
         cur.execute("SELECT user_id FROM group_members WHERE chat_id = ?", (chat_id,))
         rows = cur.fetchall()
         return [row["user_id"] for row in rows]
 
 
+def get_all_members_with_names(chat_id):
+    """Return list of dicts with user_id, first_name, username for a chat."""
+    with cursor() as cur:
+        cur.execute("SELECT user_id, first_name, username FROM group_members WHERE chat_id = ?", (chat_id,))
+        return [dict(r) for r in cur.fetchall()]
+
+
 def get_today_festivals(month, day):
     with cursor() as cur:
         cur.execute("SELECT name, meaning, photo_id FROM festivals WHERE month = ? AND day = ?", (month, day))
-        return [dict(r) for r in cur.fetchall()]  # returns list of dicts with name, meaning, photo_id
+        return [dict(r) for r in cur.fetchall()]
 
 
 def get_all_festivals():
