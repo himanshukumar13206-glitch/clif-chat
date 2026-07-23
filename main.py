@@ -51,7 +51,7 @@ async def start_command_with_photo(update, context):
         "Use /tagall to begin."
     )
     await update.message.reply_photo(
-        photo="AgACAgEAAxkBAAFP2pZqYZj9OceS5YrUG3_M6xXq4Kw6yAACcgxrG7IyCEccio7yanjg2QEAAwIAA20AAz0E",
+        photo="AgACAgEAAxkBAAFP2vtqYZxnw2qH2qnhPJUXpcMAAdEdw3EAAnMMaxuyMghHYkosd7LZJCIBAAMCAANzAAM9BA",
         caption=caption
     )
 
