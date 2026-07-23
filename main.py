@@ -43,16 +43,27 @@ async def health_check_handler(reader, writer):
     await writer.wait_closed()
 
 
-# ========== UPDATED: /start command with photo (file_id) ==========
-async def start_command_with_photo(update, context):
-    """Send the welcome photo with a caption using a Telegram file_id."""
-    caption = (
-        "✨ Welcome! I can tag all members and send festival greetings.\n"
-        "Use /tagall to begin."
-    )
+# ========== RESTORED: Original rich start WITH photo ==========
+async def start_with_photo(update, context):
+    """Send the welcome photo first, then the original Nova welcome message."""
     await update.message.reply_photo(
-        photo="AgACAgEAAxkBAAFP2vtqYZxnw2qH2qnhPJUXpcMAAdEdw3EAAnMMaxuyMghHYkosd7LZJCIBAAMCAANzAAM9BA",
-        caption=caption
+        photo="PASTE_YOUR_FILE_ID_HERE",   # <-- replace after running /getid
+        caption=""
+    )
+    # Now call the original start handler (your full greeting + keyboard)
+    await start.start_command(update, context)
+
+
+# ========== TEMPORARY: Command to get your bot's photo file_id ==========
+async def get_photo_id(update, context):
+    """Reply with the file_id of the last photo sent to the bot."""
+    if not update.message.photo:
+        await update.message.reply_text("Send me a photo first, then type /getid.")
+        return
+    file_id = update.message.photo[-1].file_id
+    await update.message.reply_text(
+        f"✅ Your file_id is:\n`{file_id}`",
+        parse_mode='Markdown'
     )
 
 
@@ -90,9 +101,8 @@ def build_app():
     db.init_db()
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # ========== Start command replaced with photo version ==========
-    # app.add_handler(CommandHandler("start", start.start_command))   # OLD (commented out)
-    app.add_handler(CommandHandler("start", start_command_with_photo))
+    # ========== Start command: photo + original rich message ==========
+    app.add_handler(CommandHandler("start", start_with_photo))
 
     app.add_handler(CallbackQueryHandler(start.menu_callback, pattern=r"^menu:"))
     app.add_handler(CallbackQueryHandler(start.game_info_callback, pattern=r"^game_info:"))
@@ -200,6 +210,9 @@ def build_app():
         filters.StatusUpdate.LEFT_CHAT_MEMBER, left_member
     ))
 
+    # ========== TEMPORARY: /getid handler ==========
+    app.add_handler(CommandHandler("getid", get_photo_id))
+
     # Rules command
     app.add_handler(CommandHandler("rules", rules_command))
 
@@ -213,18 +226,15 @@ async def main():
     app = build_app()
     logger.info("Nova is starting...")
 
-    # Start the bot
     await app.initialize()
     await app.updater.start_polling()
     await app.start()
     logger.info("Nova is running.")
 
-    # Start the tiny HTTP server for Render's health check
     port = int(os.environ.get("PORT", 10000))
     server = await start_server(health_check_handler, host="0.0.0.0", port=port)
     logger.info(f"Health check server listening on port {port}")
 
-    # Wait until a stop signal
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
@@ -237,7 +247,6 @@ async def main():
 
     await stop_event.wait()
 
-    # Graceful shutdown
     server.close()
     await server.wait_closed()
     await app.stop()
