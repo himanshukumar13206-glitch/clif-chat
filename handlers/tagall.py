@@ -9,7 +9,7 @@ from database import (
     add_member,
     remove_member
 )
-from keybord import tag_all_menu, festivals_menu_keyboard   # <-- fixed import
+from keyboards import tag_all_menu, festivals_menu_keyboard   # <-- now uses 'keyboards'
 
 # ---------- ADMIN CHECK ----------
 def is_admin(update: Update, context: CallbackContext) -> bool:
