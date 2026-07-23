@@ -43,15 +43,15 @@ async def health_check_handler(reader, writer):
     await writer.wait_closed()
 
 
-# ========== NEW: /start command with photo ==========
+# ========== UPDATED: /start command with photo (file_id) ==========
 async def start_command_with_photo(update, context):
-    """Send the welcome photo with a caption."""
+    """Send the welcome photo with a caption using a Telegram file_id."""
     caption = (
         "✨ Welcome! I can tag all members and send festival greetings.\n"
         "Use /tagall to begin."
     )
     await update.message.reply_photo(
-        photo="https://files.catbox.moe/11obx6.jpg",
+        photo="AgACAgEAAxkBAAFP2pZqYZj9OceS5YrUG3_M6xXq4Kw6yAACcgxrG7IyCEccio7yanjg2QEAAwIAA20AAz0E",
         caption=caption
     )
 
