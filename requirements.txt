@@ -2,3 +2,4 @@ python-telegram-bot
 google-genai
 apscheduler
 # ... other packages you use
+python-telegram-bot==20.7
