@@ -14,7 +14,7 @@ import database as db
 from handlers import start, economy, actions, romance, admin, chat_ai
 from games import bet, rps, mines, wordchain, uno
 
-# ========== NEW: Tagall & Festival imports ==========
+# ========== Tagall & Festival imports ==========
 from handlers.tagall import (
     tag_all, tag_one_by_one, tag_all_in_one,
     good_morning, good_night, festivals_menu,
@@ -26,9 +26,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-# --- Minimal HTTP handler for Render health check ---
+# --- Health check for Render ---
 async def health_check_handler(reader, writer):
-    """Respond with a simple 200 OK."""
     response = (
         "HTTP/1.1 200 OK\r\n"
         "Content-Length: 2\r\n"
@@ -43,31 +42,40 @@ async def health_check_handler(reader, writer):
     await writer.wait_closed()
 
 
-# ========== RESTORED: Original rich start WITH photo ==========
+# ========== /start : Photo + Original Nova welcome ==========
 async def start_with_photo(update, context):
-    """Send the welcome photo first, then the original Nova welcome message."""
+    # 1. Send the welcome photo (replace placeholder with your real file_id later)
     await update.message.reply_photo(
-        photo="PASTE_YOUR_FILE_ID_HERE",   # <-- replace after running /getid
+        photo="PASTE_YOUR_FILE_ID_HERE",   # <-- change this after you get the correct ID
         caption=""
     )
-    # Now call the original start handler (your full greeting + keyboard)
+    # 2. Then send the original rich welcome message + keyboard
     await start.start_command(update, context)
 
 
-# ========== TEMPORARY: Command to get your bot's photo file_id ==========
+# ========== /getid – get your bot's own photo file_id ==========
 async def get_photo_id(update, context):
-    """Reply with the file_id of the last photo sent to the bot."""
-    if not update.message.photo:
-        await update.message.reply_text("Send me a photo first, then type /getid.")
+    """Extract file_id from the photo this command is replying to."""
+    # Check if the command is a reply to a photo
+    if update.message.reply_to_message and update.message.reply_to_message.photo:
+        file_id = update.message.reply_to_message.photo[-1].file_id
+        await update.message.reply_text(
+            f"✅ Your file_id:\n`{file_id}`",
+            parse_mode='Markdown'
+        )
         return
-    file_id = update.message.photo[-1].file_id
-    await update.message.reply_text(
-        f"✅ Your file_id is:\n`{file_id}`",
-        parse_mode='Markdown'
-    )
+    # Fallback: if the command message itself contains a photo (unlikely)
+    if update.message.photo:
+        file_id = update.message.photo[-1].file_id
+        await update.message.reply_text(
+            f"✅ Your file_id:\n`{file_id}`",
+            parse_mode='Markdown'
+        )
+        return
+    await update.message.reply_text("Reply to a photo with /getid to get its file_id.")
 
 
-# --- Simple /rules command (unchanged) ---
+# --- /rules (unchanged) ---
 async def rules_command(update, context):
     rules_text = (
         "🎮 <b>Game Rules</b>\n\n"
@@ -101,7 +109,7 @@ def build_app():
     db.init_db()
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # ========== Start command: photo + original rich message ==========
+    # /start (photo + original welcome)
     app.add_handler(CommandHandler("start", start_with_photo))
 
     app.add_handler(CallbackQueryHandler(start.menu_callback, pattern=r"^menu:"))
@@ -144,7 +152,7 @@ def build_app():
     app.add_handler(CommandHandler("groupbot", admin.groupbot_command))
     app.add_handler(CommandHandler("groupmode", admin.groupmode_command))
 
-    # ===== EXISTING GAMES =====
+    # ===== Existing Games =====
     app.add_handler(CommandHandler("bet", bet.bet_command))
     app.add_handler(CommandHandler("rps", rps.rps_command))
     app.add_handler(CommandHandler("joinrps", rps.joinrps_command))
@@ -156,7 +164,7 @@ def build_app():
         bet.bbet_message_handler,
     ))
 
-    # ===== MINES & WORDCHAIN =====
+    # Mines & Wordchain
     app.add_handler(CommandHandler("mines", mines.mines_command))
     app.add_handler(CommandHandler("stopmines", mines.stop_mines))
     app.add_handler(MessageHandler(
@@ -171,27 +179,24 @@ def build_app():
         wordchain.wordchain_handler,
     ))
 
-    # ===== FULL UNO GAME =====
+    # UNO Game
     app.add_handler(CommandHandler("unostart", uno.uno_start))
     app.add_handler(CommandHandler("unojoin", uno.uno_join))
     app.add_handler(CommandHandler("unostartgame", uno.uno_start_game))
     app.add_handler(CommandHandler("unoleave", uno.uno_leave))
     app.add_handler(CommandHandler("unoskip", uno.uno_skip))
     app.add_handler(CommandHandler("unokill", uno.uno_kill))
-
     app.add_handler(CommandHandler("setunostickers", uno.set_uno_stickers))
     app.add_handler(CommandHandler("done_stickers", uno.done_stickers))
-
     app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_play:"))
     app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_draw$"))
     app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_state$"))
-
     app.add_handler(MessageHandler(
         filters.Sticker.ALL & ~filters.COMMAND,
         uno.handle_sticker_message
     ), group=1)
 
-    # ========== NEW: Tagall & Festival handlers ==========
+    # ===== Tagall & Festival handlers =====
     app.add_handler(CommandHandler("tagall", tag_all))
     app.add_handler(CallbackQueryHandler(tag_one_by_one, pattern="^tag_one$"))
     app.add_handler(CallbackQueryHandler(tag_all_in_one, pattern="^tag_all_in_one$"))
@@ -202,7 +207,7 @@ def build_app():
     app.add_handler(CallbackQueryHandler(all_festivals, pattern="^all_festivals$"))
     app.add_handler(CallbackQueryHandler(tagall_back, pattern="^tagall_back$"))
 
-    # ========== NEW: Group member tracking ==========
+    # Group member tracking
     app.add_handler(MessageHandler(
         filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member
     ))
@@ -210,13 +215,13 @@ def build_app():
         filters.StatusUpdate.LEFT_CHAT_MEMBER, left_member
     ))
 
-    # ========== TEMPORARY: /getid handler ==========
+    # Temporary /getid (remove after you get the correct file_id)
     app.add_handler(CommandHandler("getid", get_photo_id))
 
     # Rules command
     app.add_handler(CommandHandler("rules", rules_command))
 
-    # Catch-all AI persona chat (ALWAYS LAST)
+    # Catch-all AI chat (MUST BE LAST)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_ai.message_handler))
 
     return app
