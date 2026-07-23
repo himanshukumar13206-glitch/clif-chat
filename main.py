@@ -42,33 +42,26 @@ async def health_check_handler(reader, writer):
     await writer.wait_closed()
 
 
-# ========== /start : Photo + Original Nova welcome ==========
+# ========== /start : Photo + Original Avni welcome ==========
 async def start_with_photo(update, context):
-    # 1. Send the welcome photo (replace placeholder with your real file_id later)
+    # 1. Send the welcome photo
     await update.message.reply_photo(
-        photo="PASTE_YOUR_FILE_ID_HERE",   # <-- change this after you get the correct ID
+        photo="AgACAgEAAxkBAAIBQGphnYVCL-XlPs7EwBPd6CEXSPUWAAJzDGsbsjIIR3mix53cfgQMAQADAgADeAADPQQ",
         caption=""
     )
     # 2. Then send the original rich welcome message + keyboard
     await start.start_command(update, context)
 
 
-# ========== /getid – get your bot's own photo file_id (plain text, no Markdown) ==========
+# ========== /getid (optional – you can remove later) ==========
 async def get_photo_id(update, context):
-    """Extract file_id from the photo this command is replying to."""
-    # If the command is a reply to a photo, get the file_id from that photo
     if update.message.reply_to_message and update.message.reply_to_message.photo:
         file_id = update.message.reply_to_message.photo[-1].file_id
-        await update.message.reply_text(
-            f"✅ Your file_id:\n{file_id}"   # plain text, no formatting
-        )
+        await update.message.reply_text(f"✅ Your file_id:\n{file_id}")
         return
-    # Fallback: if the command message itself contains a photo (unlikely)
     if update.message.photo:
         file_id = update.message.photo[-1].file_id
-        await update.message.reply_text(
-            f"✅ Your file_id:\n{file_id}"
-        )
+        await update.message.reply_text(f"✅ Your file_id:\n{file_id}")
         return
     await update.message.reply_text("Reply to a photo with /getid to get its file_id.")
 
@@ -213,7 +206,7 @@ def build_app():
         filters.StatusUpdate.LEFT_CHAT_MEMBER, left_member
     ))
 
-    # Temporary /getid (remove after you get the correct file_id)
+    # Temporary /getid (you can remove this line later)
     app.add_handler(CommandHandler("getid", get_photo_id))
 
     # Rules command
@@ -227,12 +220,12 @@ def build_app():
 
 async def main():
     app = build_app()
-    logger.info("Nova is starting...")
+    logger.info("Avni is starting...")
 
     await app.initialize()
     await app.updater.start_polling()
     await app.start()
-    logger.info("Nova is running.")
+    logger.info("Avni is running.")
 
     port = int(os.environ.get("PORT", 10000))
     server = await start_server(health_check_handler, host="0.0.0.0", port=port)
@@ -255,7 +248,7 @@ async def main():
     await app.stop()
     await app.updater.stop()
     await app.shutdown()
-    logger.info("Nova has stopped.")
+    logger.info("Avni has stopped.")
 
 
 if __name__ == "__main__":
