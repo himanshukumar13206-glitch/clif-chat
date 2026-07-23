@@ -9,19 +9,20 @@ from database import (
     add_member,
     remove_member
 )
-from keyboards import tag_all_menu, festivals_menu_keyboard   # <-- now uses 'keyboards'
+from keyboards import tag_all_menu, festivals_menu_keyboard
 
-# ---------- ADMIN CHECK ----------
-def is_admin(update: Update, context: CallbackContext) -> bool:
+# ---------- ASYNC ADMIN CHECK ----------
+async def is_admin(update: Update, context: CallbackContext) -> bool:
+    """Return True if the user is an admin or creator of the current chat."""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     try:
-        member = context.bot.get_chat_member(chat_id, user_id)
+        member = await context.bot.get_chat_member(chat_id, user_id)
         return member.status in ('administrator', 'creator')
     except:
         return False
 
-# ---------- GOOD MORNING MESSAGES ----------
+# ---------- GOOD MORNING / NIGHT MESSAGES ----------
 MORNING_MSGS = [
     "🌞 Good Morning, rise and shine!",
     "राधे राधे ☀️ सुप्रभात!",
@@ -44,8 +45,8 @@ NIGHT_MSGS = [
 
 # ---------- TAG ALL FUNCTIONS ----------
 async def tag_all(update: Update, context: CallbackContext):
-    """Entry point for /tagall command"""
-    if not is_admin(update, context):
+    """Entry point for /tagall command."""
+    if not await is_admin(update, context):          # <-- await added
         await update.message.reply_text("❌ Only admins can use this.")
         return
     await update.message.reply_text(
