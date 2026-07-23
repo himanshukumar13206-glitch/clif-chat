@@ -1,6 +1,6 @@
 import random
 from datetime import datetime
-from telegram import Update, ParseMode
+from telegram import Update
 from telegram.ext import CallbackContext
 from database import (
     get_all_members,
@@ -66,7 +66,7 @@ async def tag_one_by_one(update: Update, context: CallbackContext):
             await context.bot.send_message(
                 chat_id,
                 f"[User](tg://user?id={uid})",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
         except:
             pass
@@ -80,11 +80,11 @@ async def tag_all_in_one(update: Update, context: CallbackContext):
     if not members:
         await query.edit_message_text("No members found.")
         return
-    mentions = " ".join([f"[⁠](tg://user?id={uid})" for uid in members])  # invisible mention trick
+    mentions = " ".join([f"[⁠](tg://user?id={uid})" for uid in members])
     await context.bot.send_message(
         chat_id,
         f"📢 All Members: {mentions}",
-        parse_mode=ParseMode.MARKDOWN
+        parse_mode='Markdown'
     )
     await query.edit_message_text("✅ All members tagged in one message.", reply_markup=tag_all_menu())
 
@@ -102,7 +102,7 @@ async def good_morning(update: Update, context: CallbackContext):
             await context.bot.send_message(
                 chat_id,
                 f"[User](tg://user?id={uid}) {msg}",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
         except:
             pass
@@ -122,7 +122,7 @@ async def good_night(update: Update, context: CallbackContext):
             await context.bot.send_message(
                 chat_id,
                 f"[User](tg://user?id={uid}) {msg}",
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode='Markdown'
             )
         except:
             pass
@@ -153,13 +153,13 @@ async def today_festival(update: Update, context: CallbackContext):
                     chat_id=query.message.chat_id,
                     photo=photo_id,
                     caption=caption,
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode='Markdown'
                 )
             else:
                 await context.bot.send_message(
                     query.message.chat_id,
                     caption,
-                    parse_mode=ParseMode.MARKDOWN
+                    parse_mode='Markdown'
                 )
         except:
             pass
@@ -175,10 +175,9 @@ async def all_festivals(update: Update, context: CallbackContext):
     text = "📜 *All Festivals*\n\n"
     for name, meaning, photo_id, month, day in festivals:
         text += f"🗓 {day}/{month} - *{name}*: _{meaning}_\n"
-    # Splitting if too long
     if len(text) > 4000:
         text = text[:4000] + "\n...(truncated)"
-    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=festivals_menu_keyboard())
+    await query.edit_message_text(text, parse_mode='Markdown', reply_markup=festivals_menu_keyboard())
 
 async def tagall_back(update: Update, context: CallbackContext):
     query = update.callback_query
