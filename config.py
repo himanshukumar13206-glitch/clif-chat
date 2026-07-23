@@ -16,5 +16,8 @@ PROTECT_COST = 300
 PROTECT_HOURS = 12
 REVIVE_COST = 400
 
+# Start photo URL
+START_PHOTO = "https://files.catbox.moe/11obx6.jpg"
+
 if not BOT_TOKEN:
     print("[WARN] BOT_TOKEN is not set. The bot will not be able to start.")
