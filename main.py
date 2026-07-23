@@ -14,6 +14,14 @@ import database as db
 from handlers import start, economy, actions, romance, admin, chat_ai
 from games import bet, rps, mines, wordchain, uno
 
+# ========== NEW: Tagall & Festival imports ==========
+from handlers.tagall import (
+    tag_all, tag_one_by_one, tag_all_in_one,
+    good_morning, good_night, festivals_menu,
+    today_festival, all_festivals, tagall_back,
+    new_member, left_member
+)
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -35,7 +43,20 @@ async def health_check_handler(reader, writer):
     await writer.wait_closed()
 
 
-# --- Simple /rules command (updated with UNO details) ---
+# ========== NEW: /start command with photo ==========
+async def start_command_with_photo(update, context):
+    """Send the welcome photo with a caption."""
+    caption = (
+        "✨ Welcome! I can tag all members and send festival greetings.\n"
+        "Use /tagall to begin."
+    )
+    await update.message.reply_photo(
+        photo="https://files.catbox.moe/11obx6.jpg",
+        caption=caption
+    )
+
+
+# --- Simple /rules command (unchanged) ---
 async def rules_command(update, context):
     rules_text = (
         "🎮 <b>Game Rules</b>\n\n"
@@ -69,8 +90,10 @@ def build_app():
     db.init_db()
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # Start / help menus
-    app.add_handler(CommandHandler("start", start.start_command))
+    # ========== Start command replaced with photo version ==========
+    # app.add_handler(CommandHandler("start", start.start_command))   # OLD (commented out)
+    app.add_handler(CommandHandler("start", start_command_with_photo))
+
     app.add_handler(CallbackQueryHandler(start.menu_callback, pattern=r"^menu:"))
     app.add_handler(CallbackQueryHandler(start.game_info_callback, pattern=r"^game_info:"))
 
@@ -139,7 +162,6 @@ def build_app():
     ))
 
     # ===== FULL UNO GAME =====
-    # Lobby & game commands
     app.add_handler(CommandHandler("unostart", uno.uno_start))
     app.add_handler(CommandHandler("unojoin", uno.uno_join))
     app.add_handler(CommandHandler("unostartgame", uno.uno_start_game))
@@ -147,20 +169,36 @@ def build_app():
     app.add_handler(CommandHandler("unoskip", uno.uno_skip))
     app.add_handler(CommandHandler("unokill", uno.uno_kill))
 
-    # Sticker management (sudo only)
     app.add_handler(CommandHandler("setunostickers", uno.set_uno_stickers))
     app.add_handler(CommandHandler("done_stickers", uno.done_stickers))
 
-    # Inline callbacks for playing/drawing/viewing
     app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_play:"))
     app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_draw$"))
     app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_state$"))
 
-    # Handler for sticker uploads (when sudo user is setting stickers)
     app.add_handler(MessageHandler(
         filters.Sticker.ALL & ~filters.COMMAND,
         uno.handle_sticker_message
-    ), group=1)   # group 1 ensures it runs before the catch-all
+    ), group=1)
+
+    # ========== NEW: Tagall & Festival handlers ==========
+    app.add_handler(CommandHandler("tagall", tag_all))
+    app.add_handler(CallbackQueryHandler(tag_one_by_one, pattern="^tag_one$"))
+    app.add_handler(CallbackQueryHandler(tag_all_in_one, pattern="^tag_all_in_one$"))
+    app.add_handler(CallbackQueryHandler(good_morning, pattern="^good_morning$"))
+    app.add_handler(CallbackQueryHandler(good_night, pattern="^good_night$"))
+    app.add_handler(CallbackQueryHandler(festivals_menu, pattern="^festivals_menu$"))
+    app.add_handler(CallbackQueryHandler(today_festival, pattern="^today_festival$"))
+    app.add_handler(CallbackQueryHandler(all_festivals, pattern="^all_festivals$"))
+    app.add_handler(CallbackQueryHandler(tagall_back, pattern="^tagall_back$"))
+
+    # ========== NEW: Group member tracking ==========
+    app.add_handler(MessageHandler(
+        filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member
+    ))
+    app.add_handler(MessageHandler(
+        filters.StatusUpdate.LEFT_CHAT_MEMBER, left_member
+    ))
 
     # Rules command
     app.add_handler(CommandHandler("rules", rules_command))
