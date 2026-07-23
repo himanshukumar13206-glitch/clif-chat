@@ -171,7 +171,9 @@ def build_app():
         wordchain.wordchain_handler,
     ))
 
-    # UNO Game
+    # ===== UNO Game (integrated with mau_mau_bot game engine) =====
+    # The bridge file is games/uno.py (created by you).
+    # It uses the game logic from the submodule in games/uno/
     app.add_handler(CommandHandler("unostart", uno.uno_start))
     app.add_handler(CommandHandler("unojoin", uno.uno_join))
     app.add_handler(CommandHandler("unostartgame", uno.uno_start_game))
@@ -180,13 +182,9 @@ def build_app():
     app.add_handler(CommandHandler("unokill", uno.uno_kill))
     app.add_handler(CommandHandler("setunostickers", uno.set_uno_stickers))
     app.add_handler(CommandHandler("done_stickers", uno.done_stickers))
-    app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_play:"))
-    app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_draw$"))
-    app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_state$"))
-    app.add_handler(MessageHandler(
-        filters.Sticker.ALL & ~filters.COMMAND,
-        uno.handle_sticker_message
-    ), group=1)
+    app.add_handler(CallbackQueryHandler(uno.uno_play_callback, pattern=r"^uno_"))
+    # Sticker handler disabled for now (enable when you implement stickers)
+    # app.add_handler(MessageHandler(filters.Sticker.ALL & ~filters.COMMAND, uno.handle_sticker_message), group=1)
 
     # ===== Tagall & Festival handlers =====
     app.add_handler(CommandHandler("tagall", tag_all))
