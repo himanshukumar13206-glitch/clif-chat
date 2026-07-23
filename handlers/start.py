@@ -48,7 +48,63 @@ CHAT_TEXT = (
     "An admin's choice takes priority over personal /quiet or /chatty."
 )
 
-HELP_TEXT = "📖 Help & Commands\n\nPick a category below 👇"
+# ----------  FULL HELP COMMAND LIST (replaces old placeholder) ----------
+FULL_HELP_TEXT = f"""✨ <b>{BOT_NAME}'s Commands</b> ✨
+
+<b>💬 Chat & Personalisation</b>
+/start – Welcome message + photo
+/checkins – Toggle daily check‑ins
+/reactions – Toggle reaction emojis
+/quiet – Avni talks less in groups
+/chatty – Avni talks more in groups
+
+<b>💰 Economy</b>
+/balance (or /bal) – Check coins
+/daily – Claim daily reward
+/give @user amount – Send coins
+/toprich (or /leaderboard) – Richest users
+/rank – Your XP rank
+
+<b>🔪 Actions</b>
+/rob @user – Steal coins
+/kill @user – Kill a player
+/protect – Buy shield (300💰)
+/shield (or /protection) – Check protection
+/revive – Come back to life (400💰)
+/topkill – Top killers
+
+<b>💕 Romance</b>
+/propose @user – Propose marriage
+/divorce – End marriage (500💰)
+/marriage (or /married) – Your spouse
+/couple (or /shippering) – Random couple
+
+<b>👑 Admin / Sudo</b>
+/addsudo, /delsudo, /sudolist
+/auth, /unauth, /authlist
+/groupbot, /groupmode
+
+<b>🎮 Games</b>
+/bet amount, bbet amount – Gambling
+/rps wager, /joinrps, /end – Rock‑Paper‑Scissors
+/mines, /stopmines – Minesweeper
+/wordchain, /stopchain – Word chain
+/unostart, /unojoin, /unostartgame, /unoleave, /unoskip, /unokill – UNO
+/setunostickers, /done_stickers – UNO stickers
+(More games under 🎮 Games button)
+
+<b>📢 Group Tagging (Admins only)</b>
+/tagall – Open tag menu
+    • Tag One by One
+    • Tag All in One
+    • Good Morning (random Hinglish/English)
+    • Good Night
+    • Festivals & Events (Indian festivals with pics)
+
+<b>🛠️ Other</b>
+/rules – Game rules
+/getid – (temp) Get photo file ID
+"""
 
 ECONOMY_TEXT = (
     "💰 Economy commands 💰\n\n"
@@ -131,7 +187,12 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "chat":
         await query.edit_message_text(CHAT_TEXT.format(bot=BOT_NAME), reply_markup=back_to_help_keyboard())
     elif action == "help":
-        await query.edit_message_text(HELP_TEXT, reply_markup=help_keyboard())
+        # Now shows the FULL command list directly, with a simple back button
+        await query.edit_message_text(
+            FULL_HELP_TEXT,
+            parse_mode='HTML',
+            reply_markup=back_to_help_keyboard()
+        )
     elif action == "economy":
         await query.edit_message_text(ECONOMY_TEXT, reply_markup=back_to_help_keyboard())
     elif action == "actions":
