@@ -53,23 +53,21 @@ async def start_with_photo(update, context):
     await start.start_command(update, context)
 
 
-# ========== /getid – get your bot's own photo file_id ==========
+# ========== /getid – get your bot's own photo file_id (plain text, no Markdown) ==========
 async def get_photo_id(update, context):
     """Extract file_id from the photo this command is replying to."""
-    # Check if the command is a reply to a photo
+    # If the command is a reply to a photo, get the file_id from that photo
     if update.message.reply_to_message and update.message.reply_to_message.photo:
         file_id = update.message.reply_to_message.photo[-1].file_id
         await update.message.reply_text(
-            f"✅ Your file_id:\n`{file_id}`",
-            parse_mode='Markdown'
+            f"✅ Your file_id:\n{file_id}"   # plain text, no formatting
         )
         return
     # Fallback: if the command message itself contains a photo (unlikely)
     if update.message.photo:
         file_id = update.message.photo[-1].file_id
         await update.message.reply_text(
-            f"✅ Your file_id:\n`{file_id}`",
-            parse_mode='Markdown'
+            f"✅ Your file_id:\n{file_id}"
         )
         return
     await update.message.reply_text("Reply to a photo with /getid to get its file_id.")
